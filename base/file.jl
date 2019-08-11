@@ -461,14 +461,28 @@ function temp_cleanup_later(path::AbstractString; asap::Bool=false)
 end
 
 function temp_cleanup_purge()
+    need_gc = Sys.iswindows()
     for (path, asap) in TEMP_CLEANUP
-        asap && rm(path, recursive=true, force=true)
+        if asap && ispath(path)
+            if need_gc
+                GC.gc()
+                need_gc = false
+            end
+            rm(path, recursive=true, force=true)
+        end
         !ispath(path) && delete!(TEMP_CLEANUP, path)
     end
 end
 
 function temp_cleanup_atexit()
+    need_gc = Sys.iswindows()
     for path in keys(TEMP_CLEANUP)
+        if ispath(path)
+            if need_gc
+                GC.gc()
+                need_gc = false
+            end
+        end
         rm(path, recursive=true, force=true)
     end
 end

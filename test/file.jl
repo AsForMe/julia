@@ -80,6 +80,7 @@ function with_temp_cleanup(f::Function, n::Int)
     TEMP_CLEANUP_MAX[] = n
     try f()
     finally
+        Sys.iswindows() && GC.gc()
         for t in keys(TEMP_CLEANUP)
             rm(t, recursive=true, force=true)
         end
@@ -89,6 +90,12 @@ function with_temp_cleanup(f::Function, n::Int)
     end
 end
 
+function mktempfile(; cleanup=true)
+    (file, io) = mktemp(cleanup=cleanup)
+    Sys.iswindows() && close(io)
+    return file
+end
+
 @testset "mktemp/dir cleanup list purging" begin
     n = 12 # cleanup min & max
     @assert n % 2 == n % 3 == 0 # otherwise tests won't work
@@ -96,7 +103,7 @@ end
         # for n mktemps, no purging is triggered
         temps = String[]
         for i = 1:n
-            t = i % 2 == 0 ? mktemp()[1] : mktempdir()
+            t = i % 2 == 0 ? mktempfile() : mktempdir()
             push!(temps, t)
             @test ispath(t)
             @test length(TEMP_CLEANUP) == i 
@@ -111,7 +118,7 @@ end
         @test TEMP_CLEANUP_MAX[] == n
         rm(t, recursive=true, force=true)
         # purge triggered by next mktemp with cleanup
-        t = mktemp()[1]
+        t = mktempfile()
         push!(temps, t)
         n′ = 2n÷3 + 1
         @test 2n′ > n
@@ -124,7 +131,7 @@ end
         end
         # for n′ mktemps, no purging is triggered
         for i = 1:n′
-            t = i % 2 == 0 ? mktemp()[1] : mktempdir()
+            t = i % 2 == 0 ? mktempfile() : mktempdir()
             push!(temps, t)
             @test ispath(t)
             @test length(TEMP_CLEANUP) == n′ + i
@@ -133,7 +140,7 @@ end
             i % 3 != 0 && rm(t, recursive=true, force=true)
         end
         # without cleanup no purge is triggered
-        t = mktemp(cleanup=false)[1]
+        t = mktempfile(cleanup=false)
         @test isfile(t)
         @test length(TEMP_CLEANUP) == 2n′
         @test TEMP_CLEANUP_MAX[] == 2n′
@@ -154,7 +161,7 @@ end
     with_temp_cleanup(3) do
         @test length(TEMP_CLEANUP) == 0
         @test TEMP_CLEANUP_MAX[] == 3
-        local t
+        local t, f
         temps = String[]
         # mktemp is normally cleaned up on completion
         mktemp(d) do path, _
@@ -167,10 +174,12 @@ end
         # mktemp when cleanup is prevented
         mktemp(d) do path, _
             @test isfile(path)
-            chmod(d, 0o400)
+            f = open(path) # make undeletable on Windows
+            chmod(d, 0o400) # make undeletable on UNIX
             t = path
         end
         chmod(d, 0o700)
+        close(f)
         @test isfile(t)
         @test length(TEMP_CLEANUP) == 1
         @test TEMP_CLEANUP_MAX[] == 3
@@ -186,10 +195,13 @@ end
         # mktempdir when cleanup is prevented
         mktempdir(d) do path
             @test isdir(path)
-            chmod(d, 0o400)
+            # make undeletable on Windows:
+            f = open(joinpath(d, "file.txt"), create=true)
+            chmod(d, 0o400) # make undeletable on UNIX
             t = path
         end
         chmod(d, 0o700)
+        close(f)
         @test isdir(t)
         @test length(TEMP_CLEANUP) == 2
         @test TEMP_CLEANUP_MAX[] == 3
