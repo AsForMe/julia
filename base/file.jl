@@ -464,10 +464,8 @@ function temp_cleanup_purge(all::Bool=true)
     need_gc = Sys.iswindows()
     for (path, asap) in TEMP_CLEANUP
         if (all || asap) && ispath(path)
-            if need_gc
-                GC.gc()
-                need_gc = false
-            end
+            need_gc && GC.gc()
+            need_gc = false
             rm(path, recursive=true, force=true)
         end
         !ispath(path) && delete!(TEMP_CLEANUP, path)

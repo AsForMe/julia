@@ -100,6 +100,8 @@ end
     n = 12 # cleanup min & max
     @assert n % 2 == n % 3 == 0 # otherwise tests won't work
     with_temp_cleanup(n) do
+        @test length(TEMP_CLEANUP) == 0
+        @test TEMP_CLEANUP_MAX[] == n
         # for n mktemps, no purging is triggered
         temps = String[]
         for i = 1:n
