@@ -106,6 +106,7 @@ end
         temps = String[]
         for i = 1:n
             t = i % 2 == 0 ? mktempfile() : mktempdir()
+            @show i, t, TEMP_CLEANUP, TEMP_CLEANUP_MAX[]
             push!(temps, t)
             @test ispath(t)
             @test length(TEMP_CLEANUP) == i 
