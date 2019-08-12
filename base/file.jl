@@ -451,13 +451,17 @@ end
 const TEMP_CLEANUP_MIN = Ref(1024)
 const TEMP_CLEANUP_MAX = Ref(1024)
 const TEMP_CLEANUP = Dict{String,Bool}()
+const TEMP_CLEANUP_LOCK = ReentrantLock()
 
 function temp_cleanup_later(path::AbstractString; asap::Bool=false)
+    lock(TEMP_CLEANUP_LOCK)
     TEMP_CLEANUP[path] = asap
-    length(TEMP_CLEANUP) ≤ TEMP_CLEANUP_MAX[] && return false
-    temp_cleanup_purge(false)
-    TEMP_CLEANUP_MAX[] = max(TEMP_CLEANUP_MIN[], 2*length(TEMP_CLEANUP))
-    return true
+    if length(TEMP_CLEANUP) > TEMP_CLEANUP_MAX[]
+        temp_cleanup_purge(false)
+        TEMP_CLEANUP_MAX[] = max(TEMP_CLEANUP_MIN[], 2*length(TEMP_CLEANUP))
+    end
+    unlock(TEMP_CLEANUP_LOCK)
+    return nothing
 end
 
 function temp_cleanup_purge(all::Bool=true)
