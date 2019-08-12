@@ -156,6 +156,9 @@ end
     end
 end
 
+no_error_logging(f::Function) =
+    Base.CoreLogging.with_logger(f, Base.CoreLogging.NullLogger())
+
 @testset "hof mktemp/dir when cleanup is prevented" begin
     d = mktempdir()
     with_temp_cleanup(3) do
@@ -172,11 +175,13 @@ end
         @test length(TEMP_CLEANUP) == 0
         @test TEMP_CLEANUP_MAX[] == 3
         # mktemp when cleanup is prevented
-        mktemp(d) do path, _
-            @test isfile(path)
-            f = open(path) # make undeletable on Windows
-            chmod(d, 0o400) # make undeletable on UNIX
-            t = path
+        no_error_logging() do
+            mktemp(d) do path, _
+                @test isfile(path)
+                f = open(path) # make undeletable on Windows
+                chmod(d, 0o400) # make undeletable on UNIX
+                t = path
+            end
         end
         chmod(d, 0o700)
         close(f)
@@ -193,12 +198,14 @@ end
         @test length(TEMP_CLEANUP) == 1
         @test TEMP_CLEANUP_MAX[] == 3
         # mktempdir when cleanup is prevented
-        mktempdir(d) do path
-            @test isdir(path)
-            # make undeletable on Windows:
-            f = open(joinpath(d, "file.txt"), create=true)
-            chmod(d, 0o400) # make undeletable on UNIX
-            t = path
+        no_error_logging() do
+            mktempdir(d) do path
+                @test isdir(path)
+                # make undeletable on Windows:
+                f = open(joinpath(d, "file.txt"), create=true)
+                chmod(d, 0o400) # make undeletable on UNIX
+                t = path
+            end
         end
         chmod(d, 0o700)
         close(f)
