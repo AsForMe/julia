@@ -106,7 +106,6 @@ end
         temps = String[]
         for i = 1:n
             t = i % 2 == 0 ? mktempfile() : mktempdir()
-            @show i, t, TEMP_CLEANUP, TEMP_CLEANUP_MAX[]
             push!(temps, t)
             @test ispath(t)
             @test length(TEMP_CLEANUP) == i 
@@ -205,7 +204,7 @@ no_error_logging(f::Function) =
             mktempdir(d) do path
                 @test isdir(path)
                 # make undeletable on Windows:
-                f = open(joinpath(d, "file.txt"), create=true)
+                f = open(joinpath(d, "file.txt"), "w+")
                 chmod(d, 0o400) # make undeletable on UNIX
                 t = path
             end
