@@ -455,15 +455,15 @@ const TEMP_CLEANUP = Dict{String,Bool}()
 function temp_cleanup_later(path::AbstractString; asap::Bool=false)
     TEMP_CLEANUP[path] = asap
     length(TEMP_CLEANUP) ≤ TEMP_CLEANUP_MAX[] && return false
-    temp_cleanup_purge()
+    temp_cleanup_purge(false)
     TEMP_CLEANUP_MAX[] = max(TEMP_CLEANUP_MIN[], 2*length(TEMP_CLEANUP))
     return true
 end
 
-function temp_cleanup_purge()
+function temp_cleanup_purge(all::Bool=true)
     need_gc = Sys.iswindows()
     for (path, asap) in TEMP_CLEANUP
-        if asap && ispath(path)
+        if (all || asap) && ispath(path)
             if need_gc
                 GC.gc()
                 need_gc = false
@@ -471,19 +471,6 @@ function temp_cleanup_purge()
             rm(path, recursive=true, force=true)
         end
         !ispath(path) && delete!(TEMP_CLEANUP, path)
-    end
-end
-
-function temp_cleanup_atexit()
-    need_gc = Sys.iswindows()
-    for path in keys(TEMP_CLEANUP)
-        if ispath(path)
-            if need_gc
-                GC.gc()
-                need_gc = false
-            end
-        end
-        rm(path, recursive=true, force=true)
     end
 end
 
